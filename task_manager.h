@@ -2,6 +2,7 @@
 #define TASK_MANAGER_H
 
 #include "task.h"
+#include <string>
 #include <vector>
 
 class TaskManager {
@@ -10,7 +11,6 @@ public:
     void printStdout(int task_id);
     void printStderr(int task_id);
     void killTask(int task_id);
-    void checkTaskStatus();
 
 private:
     std::vector<Task> tasks;
