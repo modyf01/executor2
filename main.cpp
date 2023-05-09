@@ -1,29 +1,60 @@
+#include <iostream>
+#include <string>
 #include "input_parser.h"
 #include "task_manager.h"
-#include <iostream>
-#include <unistd.h>
 
 int main() {
-    TaskManager task_manager;
+    TaskManager taskManager;
+    InputParser inputParser;
 
-    std::string line;
-    while (std::getline(std::cin, line)) {
-        auto command = InputParser::parse(line);
-
-        if (command.type == CommandType::RUN) {
-            task_manager.createTask(command.program, command.args);
-        } else if (command.type == CommandType::OUT) {
-            task_manager.printStdout(command.task_id);
-        } else if (command.type == CommandType::ERR) {
-            task_manager.printStderr(command.task_id);
-        } else if (command.type == CommandType::KILL) {
-            task_manager.killTask(command.task_id);
-        } else if (command.type == CommandType::SLEEP) {
-            usleep(command.sleep_duration * 1000); // Convert milliseconds to microseconds
-        } else if (command.type == CommandType::QUIT) {
-            break;
+    std::string inputLine;
+    while (std::getline(std::cin, inputLine)) {
+        if (inputLine.empty()) {
+            continue;
         }
+
+        ParsedCommand command = inputParser.parse(inputLine);
+
+        switch (command.type) {
+            case CommandType::RUN: {
+                int taskId = taskManager.run(command.program, command.args);
+                std::cout << "Task " << taskId << " started: pid " << taskManager.getTaskPid(taskId) << "." << std::endl;
+                break;
+            }
+            case CommandType::OUT: {
+                int taskId = command.taskId;
+                std::string output = taskManager.getTaskStdout(taskId);
+                std::cout << "Task " << taskId << " stdout: '" << output << "'." << std::endl;
+                break;
+            }
+            case CommandType::ERR: {
+                int taskId = command.taskId;
+                std::string error = taskManager.getTaskStderr(taskId);
+                std::cout << "Task " << taskId << " stderr: '" << error << "'." << std::endl;
+                break;
+            }
+            case CommandType::KILL: {
+                int taskId = command.taskId;
+                taskManager.killTask(taskId);
+                break;
+            }
+            case CommandType::SLEEP: {
+                int sleepTimeMs = command.sleepTimeMs;
+                usleep(sleepTimeMs * 1000);
+                break;
+            }
+            case CommandType::QUIT: {
+                taskManager.terminateAllTasks();
+                return 0;
+            }
+            default:
+                std::cerr << "Unknown command." << std::endl;
+                break;
+        }
+
+        taskManager.monitorTasks();
     }
 
+    taskManager.terminateAllTasks();
     return 0;
 }

@@ -1,27 +1,50 @@
-#include "task_manager.h"
 #include <iostream>
+#include "task_manager.h"
 
-void TaskManager::createTask(const std::string& program, const std::vector<std::string>& args) {
-    tasks.emplace_back(program, args);
-    std::cout << "Task " << tasks.size() - 1 << " started: pid " << tasks.back().getPid() << "." << std::endl;
+int TaskManager::run(const std::string &program, const std::vector<std::string> &args) {
+    int taskId = generateTaskId();
+    tasks.emplace(std::piecewise_construct,
+                  std::forward_as_tuple(taskId),
+                  std::forward_as_tuple(taskId, program, args));
+    tasks.at(taskId).start();
+    return taskId;
 }
 
-void TaskManager::printStdout(int task_id) {
-    if (task_id >= 0 && task_id < tasks.size()) {
-        tasks[task_id].checkStatus();
-        tasks[task_id].printStdout();
+
+std::string TaskManager::getTaskStdout(int taskId) {
+    return tasks.at(taskId).getLastStdoutLine();
+}
+
+std::string TaskManager::getTaskStderr(int taskId) {
+    return tasks.at(taskId).getLastStderrLine();
+}
+
+void TaskManager::killTask(int taskId) {
+    tasks.at(taskId).terminate();
+}
+
+void TaskManager::terminateAllTasks() {
+    for (auto &taskPair : tasks) {
+        taskPair.second.terminate();
     }
 }
 
-void TaskManager::printStderr(int task_id) {
-    if (task_id >= 0 && task_id < tasks.size()) {
-        tasks[task_id].checkStatus();
-        tasks[task_id].printStderr();
+void TaskManager::monitorTasks() {
+    for (auto it = tasks.begin(); it != tasks.end(); ) {
+        Task &task = it->second;
+        if (task.poll()) {
+            std::cout << "Task " << task.getTaskId() << " ended: status " << task.getExitStatus() << "." << std::endl;
+            it = tasks.erase(it);
+        } else {
+            ++it;
+        }
     }
 }
 
-void TaskManager::killTask(int task_id) {
-    if (task_id >= 0 && task_id < tasks.size()) {
-        tasks[task_id].kill();
-    }
+pid_t TaskManager::getTaskPid(int taskId) {
+    return tasks.at(taskId).getPid();
+}
+
+int TaskManager::generateTaskId() {
+    return taskIdCounter++;
 }

@@ -10,18 +10,20 @@ enum class CommandType {
     KILL,
     SLEEP,
     QUIT,
-    INVALID
+    UNKNOWN
 };
 
-struct Command {
+struct ParsedCommand {
     CommandType type;
     std::string program;
     std::vector<std::string> args;
-    int task_id;
-    int sleep_duration;
+    int taskId;
+    int sleepTimeMs;
 };
 
 class InputParser {
 public:
-    static Command parse(const std::string& line);
+    ParsedCommand parse(const std::string& inputLine);
+private:
+    std::vector<std::string> split(const std::string& str, char delimiter);
 };

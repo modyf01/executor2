@@ -1,19 +1,28 @@
-#ifndef TASK_MANAGER_H
-#define TASK_MANAGER_H
+#ifndef EXECUTOR_TASK_MANAGER_H
+#define EXECUTOR_TASK_MANAGER_H
 
-#include "task.h"
+#include <map>
 #include <string>
 #include <vector>
+#include "task.h"
 
 class TaskManager {
 public:
-    void createTask(const std::string& program, const std::vector<std::string>& args);
-    void printStdout(int task_id);
-    void printStderr(int task_id);
-    void killTask(int task_id);
+    int run(const std::string &program, const std::vector<std::string> &args);
+    std::string getTaskStdout(int taskId);
+    std::string getTaskStderr(int taskId);
+    void killTask(int taskId);
+    void terminateAllTasks();
+    void monitorTasks();
+    pid_t getTaskPid(int taskId);
+
+
 
 private:
-    std::vector<Task> tasks;
+    std::map<int, Task> tasks;
+    int generateTaskId();
+    int taskIdCounter = 0;
+
 };
 
-#endif // TASK_MANAGER_H
+#endif //EXECUTOR_TASK_MANAGER_H

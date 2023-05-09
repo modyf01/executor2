@@ -1,112 +1,127 @@
 #include "task.h"
 #include <fcntl.h>
-#include <signal.h>
 #include <sys/wait.h>
-#include <unistd.h>
+#include <cstring>
 #include <iostream>
 
-Task::Task(const std::string& program, const std::vector<std::string>& args)
-        : program(program), args(args), running(true) {
-    if (pipe(stdout_pipe) == -1 || pipe(stderr_pipe) == -1) {
-        perror("pipe");
-        exit(EXIT_FAILURE);
-    }
+Task::Task(int taskId, const std::string& command, const std::vector<std::string>& args)
+        : taskId(taskId), command(command), args(args), pid(-1), status(0), running(false), signalled(false) {
+    pipe2(stdoutPipe.data(), O_NONBLOCK);
+    pipe2(stderrPipe.data(), O_NONBLOCK);
+}
 
+Task::~Task() {
+    if (running) {
+        kill(pid, SIGTERM);
+    }
+    close(stdoutPipe[0]);
+    close(stdoutPipe[1]);
+    close(stderrPipe[0]);
+    close(stderrPipe[1]);
+}
+
+void Task::start() {
     pid = fork();
 
-    if (pid == -1) {
-        perror("fork");
-        exit(EXIT_FAILURE);
-    }
-
     if (pid == 0) {
-        // Child process
-        close(stdout_pipe[0]);
-        close(stderr_pipe[0]);
-
-        dup2(stdout_pipe[1], STDOUT_FILENO);
-        dup2(stderr_pipe[1], STDERR_FILENO);
-
-        close(stdout_pipe[1]);
-        close(stderr_pipe[1]);
+        dup2(stdoutPipe[1], STDOUT_FILENO);
+        dup2(stderrPipe[1], STDERR_FILENO);
 
         std::vector<char*> c_args;
         c_args.reserve(args.size() + 2);
-        c_args.push_back(const_cast<char*>(program.c_str()));
+
+        c_args.push_back(const_cast<char*>(command.c_str()));
         for (const auto& arg : args) {
             c_args.push_back(const_cast<char*>(arg.c_str()));
         }
         c_args.push_back(nullptr);
 
-        execvp(program.c_str(), c_args.data());
+        execvp(command.c_str(), c_args.data());
         perror("execvp");
-        exit(EXIT_FAILURE);
+        exit(1);
     } else {
-        // Parent process
-        close(stdout_pipe[1]);
-        close(stderr_pipe[1]);
-
-        // Set non-blocking read for pipes
-        int flags = fcntl(stdout_pipe[0], F_GETFL, 0);
-        fcntl(stdout_pipe[0], F_SETFL, flags | O_NONBLOCK);
-
-        flags = fcntl(stderr_pipe[0], F_GETFL, 0);
-        fcntl(stderr_pipe[0], F_SETFL, flags | O_NONBLOCK);
+        close(stdoutPipe[1]);
+        close(stderrPipe[1]);
+        running = true;
+        readerThread = std::thread(&Task::readPipes, this);
     }
 }
 
-void Task::printStdout() {
-    std::cout << "Task " << pid << " stdout: '" << stdout_last_line << "'." << std::endl;
-}
-
-void Task::printStderr() {
-    std::cout << "Task " << pid << " stderr: '" << stderr_last_line << "'." << std::endl;
-}
-
-void Task::kill() {
-    if (running) {
-        ::kill(pid, SIGINT);
+bool Task::poll() {
+    if (!running) {
+        return false;
     }
-}
 
-void Task::checkStatus() {
-    if (running) {
-        int status;
-        pid_t result = waitpid(pid, &status, WNOHANG);
-        if (result == pid) {
-            running = false;
-            std::cout << "Task " << pid << " ended: ";
-            if (WIFEXITED(status)) {
-                std::cout << "status " << WEXITSTATUS(status) << "." << std::endl;
-            } else if (WIFSIGNALED(status)) {
-                std::cout << "signalled." << std::endl;
-            }
+    int ret = waitpid(pid, &status, WNOHANG);
+    if (ret == -1) {
+        perror("waitpid");
+    } else if (ret == 0) {
+        return true;
+    } else {
+        running = false;
+        readerThread.join();
+
+        if (WIFSIGNALED(status)) {
+            signalled = true;
         }
     }
-
-    stdout_last_line = readPipeContent(stdout_pipe[0]);
-    stderr_last_line = readPipeContent(stderr_pipe[0]);
+    return false;
 }
 
-std::string Task::readPipeContent(int pipe_fd) {
-    static constexpr int buffer_size = 1024;
-    char buffer[buffer_size];
-    std::string content;
-    ssize_t bytes_read;
-
-    while ((bytes_read = read(pipe_fd, buffer, buffer_size - 1)) > 0) {
-        buffer[bytes_read] = '\0';
-        content += buffer;
+int Task::getExitStatus() const {
+    if (running) {
+        return -1;
     }
-
-    // Get the last line of content
-    auto last_newline = content.find_last_of('\n');
-    if (last_newline != std::string::npos) {
-        content.erase(content.begin() + last_newline, content.end());
-        return content.substr(content.find_last_of('\n') + 1);
-    }
-    return content;
+    return WEXITSTATUS(status);
 }
 
+std::string Task::getLastStdoutLine() {
+    std::unique_lock<std::mutex> lock(mutex);
+    return lastStdoutLine;
+}
 
+std::string Task::getLastStderrLine() {
+    std::unique_lock<std::mutex> lock(mutex);
+    return lastStderrLine;
+}
 
+int Task::getTaskId() {
+    return taskId;
+}
+
+void Task::readPipes() {
+    std::array<char, 4096> buffer;
+
+    while (running) {
+        {
+            std::unique_lock<std::mutex> lock(mutex);
+            ssize_t bytesRead = read(stdoutPipe[0], buffer.data(), buffer.size() - 1);
+            if (bytesRead > 0) {
+                buffer[bytesRead] = '\0';
+                lastStdoutLine = std::string(buffer.data());
+                cv.notify_one();
+            }
+        }
+
+        {
+            std::unique_lock<std::mutex> lock(mutex);
+            ssize_t bytesRead = read(stderrPipe[0], buffer.data(), buffer.size() - 1);
+            if (bytesRead > 0) {
+                buffer[bytesRead] = '\0';
+                lastStderrLine = std::string(buffer.data());
+                cv.notify_one();
+            }
+        }
+
+        std::unique_lock<std::mutex> lock(mutex);
+        cv.wait_for(lock, std::chrono::milliseconds(10));
+    }
+}
+
+pid_t Task::getPid() {
+    return pid;
+}
+
+bool Task::isSignalled() const {
+    return signalled;
+}

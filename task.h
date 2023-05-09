@@ -3,29 +3,35 @@
 
 #include <string>
 #include <vector>
+#include <unistd.h>
 
 class Task {
 public:
-    Task(const std::string& program, const std::vector<std::string>& args);
+    Task(int taskId, const std::string &program, const std::vector<std::string> &args);
 
-    void printStdout();
-    void printStderr();
-    void kill();
-    void checkStatus();
-    bool isRunning() const { return running; }
-    pid_t getPid() const { return pid; }
+    void start();
+    bool poll();
+    void terminate();
+
+    int getTaskId() const;
+    pid_t getPid() const;
+    int getExitStatus() const;
+
+    std::string getLastStdoutLine();
+    std::string getLastStderrLine();
 
 private:
-    std::string readPipeContent(int pipe_fd);
-
+    int taskId;
     std::string program;
     std::vector<std::string> args;
-    bool running;
+
     pid_t pid;
-    int stdout_pipe[2];
-    int stderr_pipe[2];
-    std::string stdout_last_line;
-    std::string stderr_last_line;
+    int exitStatus;
+
+    int stdoutPipe[2];
+    int stderrPipe[2];
+
+    std::string readFromPipe(int pipeFd);
 };
 
 #endif // TASK_H
