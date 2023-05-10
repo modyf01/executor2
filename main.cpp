@@ -15,6 +15,7 @@ int main() {
 
         ParsedCommand command = inputParser.parse(inputLine);
 
+        bool isQuitCommand = command.type == CommandType::QUIT;
         switch (command.type) {
             case CommandType::RUN: {
                 int taskId = taskManager.run(command.program, command.args);
@@ -45,16 +46,17 @@ int main() {
             }
             case CommandType::QUIT: {
                 taskManager.terminateAllTasks();
-                return 0;
+                break;
             }
             default:
-                std::cerr << "Unknown command." << std::endl;
                 break;
         }
-
         taskManager.monitorTasks();
+        if (isQuitCommand) {
+            break;
+        }
     }
-
     taskManager.terminateAllTasks();
+    taskManager.monitorTasks();
     return 0;
 }

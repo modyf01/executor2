@@ -8,6 +8,7 @@
 class Task {
 public:
     Task(int taskId, const std::string &program, const std::vector<std::string> &args);
+    ~Task();
 
     void start();
     bool poll();
@@ -19,6 +20,8 @@ public:
 
     std::string getLastStdoutLine();
     std::string getLastStderrLine();
+
+    void terminate_and_wait();
 
 private:
     int taskId;

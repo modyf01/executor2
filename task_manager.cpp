@@ -25,15 +25,14 @@ void TaskManager::killTask(int taskId) {
 
 void TaskManager::terminateAllTasks() {
     for (auto &taskPair : tasks) {
-        taskPair.second.terminate();
+        taskPair.second.terminate_and_wait();
     }
 }
 
 void TaskManager::monitorTasks() {
-    for (auto it = tasks.begin(); it != tasks.end(); ) {
+    for (auto it = tasks.begin(); it != tasks.end(); it++) {
         Task &task = it->second;
-        if (!task.poll())
-            ++it;
+        task.poll();
     }
 }
 

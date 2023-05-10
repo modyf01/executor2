@@ -4,7 +4,21 @@
 #include "task.h"
 
 Task::Task(int taskId, const std::string &program, const std::vector<std::string> &args)
-        : taskId(taskId), program(program), args(args), pid(-1), exitStatus(-1) {}
+        : taskId(taskId), program(program), args(args), pid(-1), exitStatus(-1) {
+    stdoutPipe[0] = -1;
+    stdoutPipe[1] = -1;
+    stderrPipe[0] = -1;
+    stderrPipe[1] = -1;
+}
+
+
+Task::~Task() {
+    terminate_and_wait();
+    close(stdoutPipe[0]);
+    close(stdoutPipe[1]);
+    close(stderrPipe[0]);
+    close(stderrPipe[1]);
+}
 
 void Task::start() {
     pipe(stdoutPipe);
@@ -42,7 +56,7 @@ bool Task::poll() {
         return false;
     }
 
-    int status;
+    int status = -1;;
     pid_t result = waitpid(pid, &status, WNOHANG);
     if (result == 0) {
         return false;
@@ -64,11 +78,29 @@ bool Task::poll() {
 }
 
 
+
 void Task::terminate() {
     if (pid != -1) {
-        kill(pid, SIGTERM);
+        kill(pid, SIGKILL);
     }
 }
+
+void Task::terminate_and_wait() {
+    if (pid != -1) {
+        kill(pid, SIGTERM);
+        int status;
+        waitpid(pid, &status, 0);
+
+        if (WIFEXITED(status)) {
+            exitStatus = WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            exitStatus = -WTERMSIG(status);
+        } else {
+            exitStatus = -1;
+        }
+    }
+}
+
 
 int Task::getTaskId() const {
     return taskId;
