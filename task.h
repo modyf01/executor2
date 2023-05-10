@@ -30,8 +30,10 @@ private:
 
     int stdoutPipe[2];
     int stderrPipe[2];
+    std::string lastStdoutLine;
+    std::string lastStderrLine;
 
-    std::string readFromPipe(int pipeFd);
+    void updateLastLineFromPipe(int pipeFd, std::string &lastLine);
 };
 
 #endif // TASK_H

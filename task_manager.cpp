@@ -32,12 +32,8 @@ void TaskManager::terminateAllTasks() {
 void TaskManager::monitorTasks() {
     for (auto it = tasks.begin(); it != tasks.end(); ) {
         Task &task = it->second;
-        if (task.poll()) {
-            std::cout << "Task " << task.getTaskId() << " ended: status " << task.getExitStatus() << "." << std::endl;
-            it = tasks.erase(it);
-        } else {
+        if (!task.poll())
             ++it;
-        }
     }
 }
 
