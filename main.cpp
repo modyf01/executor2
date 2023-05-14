@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
-#include <csignal>
+#include <unistd.h>
+
 #include "input_parser.h"
 #include "task_manager.h"
 
