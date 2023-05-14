@@ -4,11 +4,17 @@
 #include "task.h"
 
 Task::Task(int taskId, const std::string &program, const std::vector<std::string> &args)
-        : taskId(taskId), program(program), args(args), pid(-1), exitStatus(-1) {
+        : taskId(taskId), program(program), pid(-1), exitStatus(-1) {
     stdoutPipe[0] = -1;
     stdoutPipe[1] = -1;
     stderrPipe[0] = -1;
     stderrPipe[1] = -1;
+
+    execArgs.push_back(const_cast<char*>(program.c_str()));
+    for (const auto& arg : args) {
+        execArgs.push_back(const_cast<char*>(arg.c_str()));
+    }
+    execArgs.push_back(nullptr);
 }
 
 Task::~Task() {
@@ -28,6 +34,10 @@ void Task::start() {
     pid = fork();
     if (pid < 0) {
         perror("fork");
+        close(stdoutPipe[0]);
+        close(stdoutPipe[1]);
+        close(stderrPipe[0]);
+        close(stderrPipe[1]);
         return;
     }
 
@@ -38,15 +48,10 @@ void Task::start() {
             perror("dup2");
             exit(1);
         }
+        close(stdoutPipe[1]);
+        close(stderrPipe[1]);
 
-        std::vector<char *> execArgs;
-        execArgs.push_back(const_cast<char *>(program.c_str()));
-        for (const std::string &arg: args) {
-            execArgs.push_back(const_cast<char *>(arg.c_str()));
-        }
-        execArgs.push_back(nullptr);
-
-        if (execvp(program.c_str(), &execArgs[0]) < 0) {
+        if (execvp(program.c_str(), execArgs.data()) < 0) {
             perror("execvp");
             exit(1);
         }

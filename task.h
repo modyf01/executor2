@@ -37,6 +37,8 @@ private:
     std::string lastStderrLine;
 
     void updateLastLineFromPipe(int pipeFd, std::string &lastLine);
+
+    std::vector<char*> execArgs;
 };
 
 #endif // TASK_H
