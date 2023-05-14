@@ -67,7 +67,6 @@ void Task::start() {
     int stderrPipeRaw[2];
 
     if (pipe(stdoutPipeRaw) < 0 || pipe(stderrPipeRaw) < 0) {
-        perror("pipe");
         return;
     }
 
@@ -77,41 +76,26 @@ void Task::start() {
     stderrPipe[1] = FileDescriptor(stderrPipeRaw[1]);
 
     pid = fork();
-    if (pid < 0) {
-        perror("fork");
+    if (pid < 0)
         return;
-    }
 
-    if (pid == 0) { // child process
+    if (pid == 0) {
         close(stdoutPipe[0].release());
         close(stderrPipe[0].release());
-        if (dup2(stdoutPipe[1].get(), STDOUT_FILENO) < 0 || dup2(stderrPipe[1].get(), STDERR_FILENO) < 0) {
-            perror("dup2");
+        if (dup2(stdoutPipe[1].get(), STDOUT_FILENO) < 0 || dup2(stderrPipe[1].get(), STDERR_FILENO) < 0)
             exit(1);
-        }
 
-        // Close unnecessary file descriptors after dup2
-        close(stdoutPipe[1].release());
-        close(stderrPipe[1].release());
-
-        // Close all file descriptors greater than or equal to 3
-        closefrom(3);
-
-        if (execvp(program.c_str(), execArgs.data()) < 0) {
-            perror("execvp");
+        if (execvp(program.c_str(), execArgs.data()) < 0)
             exit(1);
-        }
-    } else { // parent process
+
+    } else {
         close(stdoutPipe[1].release());
         close(stderrPipe[1].release());
         if (fcntl(stdoutPipe[0].get(), F_SETFL, O_NONBLOCK) < 0 ||
-            fcntl(stderrPipe[0].get(), F_SETFL, O_NONBLOCK) < 0) {
-            perror("fcntl");
+            fcntl(stderrPipe[0].get(), F_SETFL, O_NONBLOCK) < 0)
             return;
-        }
     }
 }
-
 
 
 bool Task::poll() {
@@ -131,10 +115,7 @@ bool Task::poll() {
     if (WIFEXITED(status)) {
         exitStatus = WEXITSTATUS(status);
         std::cout << "Task " << taskId << " ended: status " << exitStatus << ".\n";
-    } else if (WIFSIGNALED(status)) {
-        std::cout << "Task " << taskId << " ended: signalled.\n";
     } else {
-        exitStatus = -1;
         std::cout << "Task " << taskId << " ended: signalled.\n";
     }
 
@@ -160,10 +141,6 @@ void Task::terminate_and_wait() {
 
         if (WIFEXITED(status)) {
             exitStatus = WEXITSTATUS(status);
-        } else if (WIFSIGNALED(status)) {
-            exitStatus = -WTERMSIG(status);
-        } else {
-            exitStatus = -1;
         }
     }
 }

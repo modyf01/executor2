@@ -1,6 +1,3 @@
-#ifndef EXECUTOR_TASK_MANAGER_H
-#define EXECUTOR_TASK_MANAGER_H
-
 #include <map>
 #include <string>
 #include <vector>
@@ -31,5 +28,3 @@ private:
     int taskIdCounter = 0;
 
 };
-
-#endif //EXECUTOR_TASK_MANAGER_H

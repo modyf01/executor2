@@ -1,6 +1,3 @@
-#ifndef TASK_H
-#define TASK_H
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -67,5 +64,3 @@ private:
     std::string lastStdoutLine;
     std::string lastStderrLine;
 };
-
-#endif // TASK_H
