@@ -60,6 +60,7 @@ Task::Task(int taskId, const std::string &program, const std::vector<std::string
 
 Task::~Task() {
     terminate_and_wait();
+    closePipes();
 }
 
 void Task::start() {
@@ -67,6 +68,7 @@ void Task::start() {
     int stderrPipeRaw[2];
 
     if (pipe(stdoutPipeRaw) < 0 || pipe(stderrPipeRaw) < 0) {
+        closePipes();
         return;
     }
 
@@ -76,8 +78,10 @@ void Task::start() {
     stderrPipe[1] = FileDescriptor(stderrPipeRaw[1]);
 
     pid = fork();
-    if (pid < 0)
+    if (pid < 0) {
+        closePipes();
         return;
+    }
 
     if (pid == 0) {
         close(stdoutPipe[0].release());
@@ -92,11 +96,12 @@ void Task::start() {
         close(stdoutPipe[1].release());
         close(stderrPipe[1].release());
         if (fcntl(stdoutPipe[0].get(), F_SETFL, O_NONBLOCK) < 0 ||
-            fcntl(stderrPipe[0].get(), F_SETFL, O_NONBLOCK) < 0)
+            fcntl(stderrPipe[0].get(), F_SETFL, O_NONBLOCK) < 0) {
+            closePipes();
             return;
+        }
     }
 }
-
 
 bool Task::poll() {
     if (pid == -1) {
@@ -107,7 +112,7 @@ bool Task::poll() {
     updateLastLineFromPipe(stderrPipe[0].get(), lastStderrLine);
 
     int status = -1;
-    pid_t result = waitpid(pid, &status, WNOHANG);
+    pid_t result = waitpid(pid, &    status, WNOHANG);
     if (result == 0) {
         return false;
     }
@@ -120,6 +125,7 @@ bool Task::poll() {
     }
 
     pid = -1;
+    closePipes();
     return true;
 }
 
@@ -179,5 +185,12 @@ void Task::updateLastLineFromPipe(int pipeFd, std::string &lastLine) {
     if (!output.empty()) {
         lastLine = std::move(output);
     }
+}
+
+void Task::closePipes() {
+    stdoutPipe[0].reset(-1);
+    stdoutPipe[1].reset(-1);
+    stderrPipe[0].reset(-1);
+    stderrPipe[1].reset(-1);
 }
 

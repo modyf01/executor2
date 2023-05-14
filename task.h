@@ -63,4 +63,6 @@ private:
 
     std::string lastStdoutLine;
     std::string lastStderrLine;
+
+    void closePipes();
 };
