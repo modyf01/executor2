@@ -11,7 +11,6 @@ Task::Task(int taskId, const std::string &program, const std::vector<std::string
     stderrPipe[1] = -1;
 }
 
-
 Task::~Task() {
     terminate_and_wait();
     close(stdoutPipe[0]);
@@ -21,15 +20,24 @@ Task::~Task() {
 }
 
 void Task::start() {
-    pipe(stdoutPipe);
-    pipe(stderrPipe);
+    if (pipe(stdoutPipe) < 0 || pipe(stderrPipe) < 0) {
+        perror("pipe");
+        return;
+    }
 
     pid = fork();
-    if (pid == 0) {
+    if (pid < 0) {
+        perror("fork");
+        return;
+    }
+
+    if (pid == 0) { // child process
         close(stdoutPipe[0]);
         close(stderrPipe[0]);
-        dup2(stdoutPipe[1], STDOUT_FILENO);
-        dup2(stderrPipe[1], STDERR_FILENO);
+        if (dup2(stdoutPipe[1], STDOUT_FILENO) < 0 || dup2(stderrPipe[1], STDERR_FILENO) < 0) {
+            perror("dup2");
+            exit(1);
+        }
 
         std::vector<char *> execArgs;
         execArgs.push_back(const_cast<char *>(program.c_str()));
@@ -38,16 +46,17 @@ void Task::start() {
         }
         execArgs.push_back(nullptr);
 
-        execvp(program.c_str(), &execArgs[0]);
-
-        // If execvp returns, there was an error
-        perror("execvp");
-        exit(1);
-    } else {
+        if (execvp(program.c_str(), &execArgs[0]) < 0) {
+            perror("execvp");
+            exit(1);
+        }
+    } else { // parent process
         close(stdoutPipe[1]);
         close(stderrPipe[1]);
-        fcntl(stdoutPipe[0], F_SETFL, O_NONBLOCK);
-        fcntl(stderrPipe[0], F_SETFL, O_NONBLOCK);
+        if (fcntl(stdoutPipe[0], F_SETFL, O_NONBLOCK) < 0 || fcntl(stderrPipe[0], F_SETFL, O_NONBLOCK) < 0) {
+            perror("fcntl");
+            return;
+        }
     }
 }
 
@@ -56,7 +65,10 @@ bool Task::poll() {
         return false;
     }
 
-    int status = -1;;
+    updateLastLineFromPipe(stdoutPipe[0], lastStdoutLine);
+    updateLastLineFromPipe(stderrPipe[0], lastStderrLine);
+
+    int status = -1;
     pid_t result = waitpid(pid, &status, WNOHANG);
     if (result == 0) {
         return false;
@@ -78,18 +90,21 @@ bool Task::poll() {
 }
 
 
-
 void Task::terminate() {
     if (pid != -1) {
-        kill(pid, SIGKILL);
+        kill(pid, SIGINT);
     }
 }
 
 void Task::terminate_and_wait() {
     if (pid != -1) {
-        kill(pid, SIGTERM);
-        int status;
-        waitpid(pid, &status, 0);
+        kill(pid, SIGINT);
+        updateLastLineFromPipe(stdoutPipe[0], lastStdoutLine);
+        updateLastLineFromPipe(stderrPipe[0], lastStderrLine);
+        int status = -1;
+        if (waitpid(pid, &status, 0) == -1) {
+            kill(pid, SIGKILL);
+        }
 
         if (WIFEXITED(status)) {
             exitStatus = WEXITSTATUS(status);
@@ -100,7 +115,6 @@ void Task::terminate_and_wait() {
         }
     }
 }
-
 
 int Task::getTaskId() const {
     return taskId;

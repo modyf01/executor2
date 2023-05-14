@@ -24,7 +24,7 @@ void TaskManager::killTask(int taskId) {
 }
 
 void TaskManager::terminateAllTasks() {
-    for (auto &taskPair : tasks) {
+    for (auto &taskPair: tasks) {
         taskPair.second.terminate_and_wait();
     }
 }

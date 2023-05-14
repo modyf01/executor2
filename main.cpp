@@ -19,7 +19,8 @@ int main() {
         switch (command.type) {
             case CommandType::RUN: {
                 int taskId = taskManager.run(command.program, command.args);
-                std::cout << "Task " << taskId << " started: pid " << taskManager.getTaskPid(taskId) << "." << std::endl;
+                std::cout << "Task " << taskId << " started: pid " << taskManager.getTaskPid(taskId) << "."
+                          << std::endl;
                 break;
             }
             case CommandType::OUT: {
@@ -51,7 +52,7 @@ int main() {
             default:
                 break;
         }
-        taskManager.monitorTasks();
+        taskManager.monitorTasks(); // przeniesione tu
         if (isQuitCommand) {
             break;
         }
