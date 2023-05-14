@@ -1,11 +1,11 @@
 #include <iostream>
 #include <string>
+#include <atomic>
 #include "input_parser.h"
 #include "task_manager.h"
 
 int main() {
     TaskManager taskManager;
-    InputParser inputParser;
 
     std::string inputLine;
     while (std::getline(std::cin, inputLine)) {
@@ -13,7 +13,7 @@ int main() {
             continue;
         }
 
-        ParsedCommand command = inputParser.parse(inputLine);
+        ParsedCommand command = InputParser::parse(inputLine);
 
         bool isQuitCommand = command.type == CommandType::QUIT;
         switch (command.type) {
@@ -52,7 +52,7 @@ int main() {
             default:
                 break;
         }
-        taskManager.monitorTasks(); // przeniesione tu
+        taskManager.monitorTasks();
         if (isQuitCommand) {
             break;
         }

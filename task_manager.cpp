@@ -30,8 +30,8 @@ void TaskManager::terminateAllTasks() {
 }
 
 void TaskManager::monitorTasks() {
-    for (auto it = tasks.begin(); it != tasks.end(); it++) {
-        Task &task = it->second;
+    for (auto &it: tasks) {
+        Task &task = it.second;
         task.poll();
     }
 }

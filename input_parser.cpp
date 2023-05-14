@@ -1,11 +1,11 @@
 #include "input_parser.h"
 #include <sstream>
 
-ParsedCommand InputParser::parse(const std::string& inputLine) {
+ParsedCommand InputParser::parse(const std::string &inputLine) {
     ParsedCommand command;
     command.type = CommandType::UNKNOWN;
 
-    std::vector<std::string> tokens = split(inputLine, ' ');
+    std::vector<std::string> tokens = split(inputLine);
 
     if (tokens.empty()) {
         return command;
@@ -46,12 +46,12 @@ ParsedCommand InputParser::parse(const std::string& inputLine) {
     return command;
 }
 
-std::vector<std::string> InputParser::split(const std::string& str, char delimiter) {
+std::vector<std::string> InputParser::split(const std::string &str) {
     std::vector<std::string> tokens;
     std::stringstream ss(str);
     std::string token;
 
-    while (std::getline(ss, token, delimiter)) {
+    while (std::getline(ss, token, ' ')) {
         if (!token.empty()) {
             tokens.push_back(token);
         }

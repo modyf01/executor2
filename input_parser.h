@@ -23,7 +23,8 @@ struct ParsedCommand {
 
 class InputParser {
 public:
-    ParsedCommand parse(const std::string& inputLine);
+    static ParsedCommand parse(const std::string &inputLine);
+
 private:
-    std::vector<std::string> split(const std::string& str, char delimiter);
+    static std::vector<std::string> split(const std::string &str);
 };
